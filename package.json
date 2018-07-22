@@ -1,0 +1,33 @@
+{
+  "name": "verdaccio-clustering",
+  "version": "1.0.0-alpha.0",
+  "description": "A verdaccio auth, middleware, and storage plugin that fires events for all major actions and enables clustering",
+  "main": "index.js",
+  "scripts": {
+    "test": "tape **/*.test.js"
+  },
+  "keywords": [
+    "verdaccio",
+    "private",
+    "npm",
+    "sync",
+    "events",
+    "clustering"
+  ],
+  "author": "Aaron Madsen <amadsen@codifiant.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^4.19.1",
+    "nyc": "^11.7.3",
+    "tape": "^4.9.0",
+    "verdaccio": "^3.2.0"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^8.3.0",
+    "may-require": "^1.0.0",
+    "redis": "^2.8.0",
+    "redis-server": "^1.2.0",
+    "s3": "^4.4.0",
+    "uuid": "^3.2.1"
+  }
+}
