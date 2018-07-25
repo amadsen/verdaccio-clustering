@@ -3,15 +3,15 @@ const path = require('path');
 const fs = require('fs');
 const uuid = require('uuid');
 const jwt = require('jsonwebtoken');
-const mayRequire = require('may-require');
+
+const events = require('./lib/events');
+const persistence = require('./lib/persistence');
+const locks = require('./lib/locks');
 
 const authenticate = require('./lib/auth');
 const middleware = require('./lib/middleware');
 const storage = require('./lib/storage');
 
-process.on('uncaughtException', (e) => {
-  console.error(e);
-});
 
 function resolveConfigPath(...parts) {
   return path.join(process.mainModule.filename, ...parts);
@@ -30,34 +30,6 @@ function checkPluginCfg(obj) {
     false
   )
 }
-
-const loadSubmodule = (modType) => new Promise((resolve, reject) => {
-  const typeCfg = clusterConfig[modType] || {};
-  const modId = Object.keys(typeCfg)[0] || 'memory';
-  const moduleCfg = typeCfg[modId] || {};
-  let e1, e2, m1, m2;
-
-  // try built in modules first - so other modules don't unintentionally override them
-  [e1, m1] = mayRequire({
-    from: path.join(__dirname, 'lib', modType)
-  })(`./${modId}`);
-  if (e1 && e1.code === 'MODULE_NOT_FOUND') {
-    // try in the context of the path.dirname(process.mainModule.filename)
-    [e2, m2] = mayRequire({
-      from: path.dirname(process.mainModule.filename)
-    })(modId);
-  }
-
-  const p = m1 || m2;
-  if (!p) {
-    const err = new Error(`Unable to load ${modType} module!`);
-    err.chain = [e2, e1];
-    return reject(err);
-  }
-  return resolve(p(moduleCfg));
-});
-
-
 
 let singleton;
 function ClusterStorage(config, params) {
@@ -136,30 +108,27 @@ function ClusterStorage(config, params) {
   });
 
   /*
-  Set up an internal init promise that ensures the local persistence layer is ready (
-    for adding a dir for local storage,
-    initializing a redis client,
-    setting up a db connection,
-    setting up s3,
-    or some other async storage initialization
-  )
-  */
+  Provide common events and persistence facades. These facades
+  can return synchronously, but load the wrapped module (plugin) in a promise
+  so long as all methods on the facade are asynchronous / non-blocking.
 
-  const context = Promise.all([
-    loadSubmodule('events'),
-    loadSubmodule('persistence')
-  ])
-  /*
-  TODO: create a facade around the persistence module that
-  triggers events for each persistence call and completion.
+  This helps avoid an issue with the streaming interface provided by (read|write)Tarball
+  that the promise-based interface would otherwise encounter.
+
+  For the events interface, events will be emitted synchronously locally as is normal for
+  an event emitter, but delivery of the event to remote listeners in the cluster is explicitly
+  asynchronous and non-blocking. 
   */
-  .then((events, persistence) => ({
+  const context = {
     params,
-    events,
-    persistence,
+    events: events(clusterConfig.events),
+    persistence: persistence(clusterConfig.persistence),
     getToken,
     verifyToken
-  }));
+  };
+
+  // initialize the (http request) lock event handling with our context
+  locks(context);
 
   /*
   Manually binding rather than using the prototype chain so that we can 
