@@ -32,4 +32,4 @@ for the request. This seems to be reasonably implemented for now.
 
 # Testing
 
-Testing has not been fully set up yet - the plan is to use `tape`. We do have a simple package in `test/verdaccio-clustering-test-pkg` that is simple for testing the various npm server endpoins.
+Testing has not been fully set up yet - the plan is to use `tape`. We do have a simple package in `test/verdaccio-clustering-test-pkg` that is simple for testing the various npm server endpoints.
