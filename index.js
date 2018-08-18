@@ -1,4 +1,3 @@
-
 const path = require('path');
 const fs = require('fs');
 const uuid = require('uuid');
@@ -12,23 +11,26 @@ const authenticate = require('./lib/auth');
 const middleware = require('./lib/middleware');
 const storage = require('./lib/storage');
 
-
 function resolveConfigPath(...parts) {
   return path.join(process.mainModule.filename, ...parts);
 }
 
 // At least one of the plugin keys should point to this module
 function checkPluginCfg(obj) {
-  return obj && typeof obj === 'object' && Object.keys(obj).reduce(
-    (found, k) => {
-      return found || (() => {
-        const mod = k[0] !== '.' ? k : resolveConfigPath(k);
-        const modPath = require.resolve(mod);
-        return modPath === __filename;
-      })();
-    },
-    false
-  )
+  return (
+    obj &&
+    typeof obj === 'object' &&
+    Object.keys(obj).reduce((found, k) => {
+      return (
+        found ||
+        (() => {
+          const mod = k[0] !== '.' ? k : resolveConfigPath(k);
+          const modPath = require.resolve(mod);
+          return modPath === __filename;
+        })()
+      );
+    }, false)
+  );
 }
 
 let singleton;
@@ -44,17 +46,21 @@ function ClusterStorage(config, params) {
     // since verdaccio only uses new for ES6+ modules, help it out
     return new ClusterStorage(config, params);
   }
-  
+
   console.log('Plugin Config:', config);
   console.log('Params:', params);
 
-  if(!(
-    checkPluginCfg(params.config.auth) &&
-    checkPluginCfg(params.config.middlewares) &&
-    checkPluginCfg(params.config.store)
-  )) {
+  if (
+    !(
+      checkPluginCfg(params.config.auth) &&
+      checkPluginCfg(params.config.middlewares) &&
+      checkPluginCfg(params.config.store)
+    )
+  ) {
     console.error('Unsupported clustering configuration');
-    throw new Error('Clustering must be set as the auth, middleware, and storage plugin');
+    throw new Error(
+      'Clustering must be set as the auth, middleware, and storage plugin'
+    );
   }
 
   // always return the same object
@@ -64,48 +70,54 @@ function ClusterStorage(config, params) {
 
   const clusterConfig = params.config[config.key] || {};
 
-  const clusterPrivateKey = process.env.VERDACCIO_CLUSTER_PRIV_KEY || fs.readFileSync(
-    resolveConfigPath(clusterConfig.privateKey || './cluster-private.key'),
-    { encoding: 'utf8' }
-  );
-  const clusterPublicKey = process.env.VERDACCIO_CLUSTER_PUBLIC_KEY || fs.readFileSync(
-    resolveConfigPath(clusterConfig.publicKey || './cluster-public.key'),
-    { encoding: 'utf8' }
-  );
+  const clusterPrivateKey =
+    process.env.VERDACCIO_CLUSTER_PRIV_KEY ||
+    fs.readFileSync(
+      resolveConfigPath(clusterConfig.privateKey || './cluster-private.key'),
+      { encoding: 'utf8' }
+    );
+  const clusterPublicKey =
+    process.env.VERDACCIO_CLUSTER_PUBLIC_KEY ||
+    fs.readFileSync(
+      resolveConfigPath(clusterConfig.publicKey || './cluster-public.key'),
+      { encoding: 'utf8' }
+    );
 
-  const getToken = () => new Promise((resolve, reject) => {
-    jwt.sign({
-      nodeId: this.nodeId
-    },
-    clusterPrivateKey,
-    {
-      algorithm: 'RS256'
-    },
-    function(err, token) {
-      if (err) {
-        return reject(err);
-      }
-      return resolve(token);
+  const getToken = () =>
+    new Promise((resolve, reject) => {
+      jwt.sign(
+        {
+          nodeId: this.nodeId
+        },
+        clusterPrivateKey,
+        {
+          algorithm: 'RS256'
+        },
+        function(err, token) {
+          if (err) {
+            return reject(err);
+          }
+          return resolve(token);
+        }
+      );
     });
-  });
 
-  const verifyToken = (token) => new Promise((resolve, reject) => {
-    jwt.verify(
-      token,
-      clusterPublicKey,
-      function(err, decoded) {
+  const verifyToken = token =>
+    new Promise((resolve, reject) => {
+      jwt.verify(token, clusterPublicKey, function(err, decoded) {
         if (err) {
           return reject(err);
         }
-  
+
         if (decoded.nodeId != this.nodeId) {
-          return reject(new Error('Failed to decode expected nodeId from secret!'));
+          return reject(
+            new Error('Failed to decode expected nodeId from secret!')
+          );
         }
-  
+
         return resolve();
-      }
-    );
-  });
+      });
+    });
 
   /*
   Provide common events and persistence facades. These facades
@@ -134,9 +146,9 @@ function ClusterStorage(config, params) {
   Manually binding rather than using the prototype chain so that we can 
   pass the context promise - including the persistence interface - to the storage functions.
   */
-  Object.keys(storage).forEach((k) => {
-      const fn = storage[k];
-      singleton[k] = fn.bind(singleton, context);
+  Object.keys(storage).forEach(k => {
+    const fn = storage[k];
+    singleton[k] = fn.bind(singleton, context);
   });
 
   singleton.authenticate = authenticate.bind(singleton, context);
