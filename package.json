@@ -28,6 +28,7 @@
     "amqp": "^0.2.7",
     "jsonwebtoken": "^8.3.0",
     "may-require": "^1.0.0",
+    "node-forge": "^0.7.6",
     "redis": "^2.8.0",
     "redis-server": "^1.2.0",
     "s3": "^4.4.0",

@@ -1,8 +1,8 @@
 const path = require('path');
 const fs = require('fs');
 const uuid = require('uuid');
-const jwt = require('jsonwebtoken');
 
+const cryptoTools = require('./lib/utils/crypto-tools');
 const events = require('./lib/events');
 const persistence = require('./lib/persistence');
 const locks = require('./lib/locks');
@@ -83,41 +83,10 @@ function ClusterStorage(config, params) {
       { encoding: 'utf8' }
     );
 
-  const getToken = () =>
-    new Promise((resolve, reject) => {
-      jwt.sign(
-        {
-          nodeId: this.nodeId
-        },
-        clusterPrivateKey,
-        {
-          algorithm: 'RS256'
-        },
-        function(err, token) {
-          if (err) {
-            return reject(err);
-          }
-          return resolve(token);
-        }
-      );
-    });
-
-  const verifyToken = token =>
-    new Promise((resolve, reject) => {
-      jwt.verify(token, clusterPublicKey, function(err, decoded) {
-        if (err) {
-          return reject(err);
-        }
-
-        if (decoded.nodeId != this.nodeId) {
-          return reject(
-            new Error('Failed to decode expected nodeId from secret!')
-          );
-        }
-
-        return resolve();
-      });
-    });
+  const { encrypt, decrypt } = cryptoTools({
+    privateKey: clusterPrivateKey,
+    publicKey: clusterPublicKey
+  });
 
   /*
   Provide common events and persistence facades. These facades
@@ -135,8 +104,8 @@ function ClusterStorage(config, params) {
     params,
     events: events(clusterConfig.events),
     persistence: persistence(clusterConfig.persistence),
-    getToken,
-    verifyToken
+    encrypt,
+    decrypt
   };
 
   // initialize the (http request) lock event handling with our context
