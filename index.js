@@ -83,9 +83,10 @@ function ClusterStorage(config, params) {
       { encoding: 'utf8' }
     );
 
-  const { encrypt, decrypt } = cryptoTools({
+  const { encrypt, decrypt, sign, verify } = cryptoTools({
     privateKey: clusterPrivateKey,
-    publicKey: clusterPublicKey
+    publicKey: clusterPublicKey,
+    nodeId: singleton.nodeId
   });
 
   /*
@@ -105,7 +106,9 @@ function ClusterStorage(config, params) {
     events: events(clusterConfig.events),
     persistence: persistence(clusterConfig.persistence),
     encrypt,
-    decrypt
+    decrypt,
+    sign,
+    verify
   };
 
   // initialize the (http request) lock event handling with our context
