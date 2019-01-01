@@ -7,9 +7,9 @@ const events = require('./lib/events');
 const persistence = require('./lib/persistence');
 const locks = require('./lib/locks');
 
-const authenticate = require('./lib/auth');
-const middleware = require('./lib/middleware');
-const storage = require('./lib/storage');
+const authMixin = require('./lib/auth');
+const middlewareMixin = require('./lib/middleware');
+const storageMixin = require('./lib/storage');
 
 function resolveConfigPath(...parts) {
   return path.join(process.mainModule.filename, ...parts);
@@ -118,13 +118,18 @@ function ClusterStorage(config, params) {
   Manually binding rather than using the prototype chain so that we can 
   pass the context promise - including the persistence interface - to the storage functions.
   */
-  Object.keys(storage).forEach(k => {
-    const fn = storage[k];
+  Object.keys(authMixin).forEach(k => {
+    const fn = storageMixin[k];
     singleton[k] = fn.bind(singleton, context);
   });
-
-  singleton.authenticate = authenticate.bind(singleton, context);
-  singleton.register_middlewares = middleware.bind(singleton, context);
+  Object.keys(middlewareMixin).forEach(k => {
+    const fn = storageMixin[k];
+    singleton[k] = fn.bind(singleton, context);
+  });
+  Object.keys(storageMixin).forEach(k => {
+    const fn = storageMixin[k];
+    singleton[k] = fn.bind(singleton, context);
+  });
 
   return singleton;
 }
